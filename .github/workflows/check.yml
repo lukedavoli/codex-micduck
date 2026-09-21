@@ -1,0 +1,24 @@
+name: Check source and local package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check public source export
+        run: ./scripts/export-source.py --output "$RUNNER_TEMP/micduck-source"
+      - name: Test and verify local package
+        run: ./scripts/build-app.sh --local --output "$RUNNER_TEMP/micduck-local-build"

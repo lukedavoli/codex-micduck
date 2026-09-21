@@ -1,0 +1,38 @@
+# Local builds, release artifacts, and private planning
+.build/
+.swiftpm/
+dist/
+outputs/
+work/
+docs/PUBLIC_RELEASE_SPEC.md
+Resources/PreviousIcons/
+
+# Local configuration and signing material
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.key
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+
+# Editor and macOS metadata
+.DS_Store
+._*
+.idea/
+.vscode/
+*.xcuserstate
+xcuserdata/
+__pycache__/
+*.pyc
+
+# Website dependencies and local checks
+node_modules/
+website/.qa/
+website/screenshots/
+website/review/
+website/test-results/
+website/playwright-report/
