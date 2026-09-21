@@ -4,9 +4,7 @@
 
 A small macOS menu bar app that lowers Spotify while Codex uses your microphone, then restores the previous volume when it can do so safely. Your manual volume changes take priority.
 
-**[Website](https://codexmicduck.davolisoftware.com)** · **[GitHub Releases](https://github.com/lukedavoli/codex-micduck/releases)** · **[Report an issue](https://github.com/lukedavoli/codex-micduck/issues)**
-
-The first public installer is being prepared. A download will appear in Releases after signing and notarization are complete.
+**[Website](https://codexmicduck.davolisoftware.com)** · **[Download for Mac](https://github.com/lukedavoli/codex-micduck/releases/latest)** · **[Report an issue](https://github.com/lukedavoli/codex-micduck/issues)**
 
 ## Who it is for
 
@@ -18,7 +16,7 @@ It adjusts Spotify's own volume. It does not change the Mac's system volume, lau
 
 ## Install
 
-1. Download the latest `.dmg` from Releases, open it, and drag **Codex MicDuck** into **Applications**.
+1. Download the latest `.dmg` from [Releases](https://github.com/lukedavoli/codex-micduck/releases/latest), open it, and drag **Codex MicDuck** into **Applications**.
 2. Open Codex MicDuck. Look for the duck in the menu bar; open the app again if a crowded menu bar hides it.
 3. With Spotify running, choose **Test Spotify Duck** and allow Codex MicDuck to control Spotify when macOS asks.
 4. Start using your microphone in Codex. Choose your preferred Spotify duck volume from the duck menu.
