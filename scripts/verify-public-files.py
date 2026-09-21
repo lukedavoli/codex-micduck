@@ -4,6 +4,7 @@
 import argparse
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 
@@ -19,7 +20,7 @@ PATTERNS = {
 
 def verify(directory: Path, allow_applications_link: bool = False) -> list[str]:
     problems = []
-    paths = sorted(directory.rglob("*")) if directory.is_dir() else [directory]
+    paths = [directory] + (sorted(directory.rglob("*")) if directory.is_dir() else [])
     for path in paths:
         relative = path.relative_to(directory) if directory.is_dir() else Path(path.name)
         if path.is_symlink():
@@ -29,6 +30,14 @@ def verify(directory: Path, allow_applications_link: bool = False) -> list[str]:
             if not path.resolve().is_relative_to(directory.resolve()):
                 problems.append(f"{relative}: external symlink")
             continue
+        if sys.platform == "darwin":
+            names = subprocess.check_output(["xattr", str(path)], text=True).splitlines()
+            for name in names:
+                encoded = subprocess.check_output(["xattr", "-px", name, str(path)], text=True)
+                value = bytes.fromhex(encoded)
+                for label, pattern in PATTERNS.items():
+                    if pattern.search(value):
+                        problems.append(f"{relative}: {label} in extended metadata")
         if not path.is_file():
             continue
         if path.name == ".DS_Store" or path.name.startswith("._"):

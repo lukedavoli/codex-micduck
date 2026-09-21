@@ -7,6 +7,7 @@ private final class FakeSpotifyClient: SpotifyVolumeClient {
     private var storedWrites: [Int] = []
     private var readBlock: (DispatchSemaphore, DispatchSemaphore)?
     var writtenVolumeOverride: Int?
+    var writtenVolumeTransform: ((Int) -> Int)?
     var readError: Error?
     var afterNextWrite: (() -> Void)?
     var afterNextRead: (() -> Void)?
@@ -43,7 +44,7 @@ private final class FakeSpotifyClient: SpotifyVolumeClient {
     func setVolume(_ volume: Int) throws {
         lock.lock()
         storedWrites.append(volume)
-        storedVolume = writtenVolumeOverride ?? volume
+        storedVolume = writtenVolumeOverride ?? writtenVolumeTransform?(volume) ?? volume
         let callback = afterNextWrite
         afterNextWrite = nil
         lock.unlock()
@@ -103,12 +104,12 @@ private enum SpotifyControllerTests {
         do {
             let f = Fixture()
             f.duck()
-            f.client.writtenVolumeOverride = 73
+            f.client.writtenVolumeTransform = { $0 >= 81 ? $0 + 1 : $0 - 1 }
             f.restore()
-            precondition(f.client.volume == 73 && f.controller.hasPendingRestore)
+            precondition(f.client.volume == 82 && f.controller.hasPendingRestore)
             precondition(f.statuses.contains { $0.isError && $0.message.contains("saved volume") })
-            // Retry must match the last applied 73, not discard the original 80 as a manual override.
-            f.client.writtenVolumeOverride = nil
+            // Retry must match the last confirmed 82, without losing the original 80.
+            f.client.writtenVolumeTransform = nil
             f.controller.restoreAfterRecording()
             f.flush()
             precondition(f.client.volume == 80 && !f.controller.hasPendingRestore)
@@ -204,11 +205,11 @@ private enum SpotifyControllerTests {
             var outcome: Result<SpotifyTestOutcome, Error>?
             f.controller.runTest(targetVolume: 20) { outcome = $0 }
             f.flush()
-            f.client.writtenVolumeOverride = 73
+            f.client.writtenVolumeTransform = { $0 >= 81 ? $0 + 1 : $0 - 1 }
             f.controller.restoreSavedVolumeForcefully()
             f.flush()
-            precondition(f.controller.hasPendingRestore && f.client.volume == 73)
-            f.client.writtenVolumeOverride = nil
+            precondition(f.controller.hasPendingRestore && f.client.volume == 82)
+            f.client.writtenVolumeTransform = nil
             waitUntil { outcome != nil }
             let result = try outcome!.get()
             precondition(result == .restored(80))
@@ -274,6 +275,43 @@ private enum SpotifyControllerTests {
             f.flush()
             precondition(f.client.volume == 80 && !f.controller.hasPendingRestore)
         }
-        print("PASS: 14 isolated Spotify recovery and transition scenarios (no Apple Events)")
+        do {
+            let f = Fixture()
+            f.duck()
+            f.client.afterNextWrite = { f.client.volume = 31 }
+            f.restore()
+            precondition(f.client.volume == 31 && f.client.writes == [20, 80],
+                         "Restore corrected a large post-write manual change")
+            precondition(f.controller.hasPendingRestore)
+            f.controller.restoreAfterRecording()
+            f.flush()
+            precondition(f.client.volume == 31 && f.client.writes == [20, 80])
+            f.controller.restoreSavedVolumeForcefully()
+            f.flush()
+            precondition(f.client.volume == 80 && !f.controller.hasPendingRestore)
+        }
+        do {
+            let f = Fixture()
+            f.client.afterNextWrite = { f.client.volume = 31 }
+            f.duck()
+            f.restore()
+            precondition(f.client.volume == 31 && f.client.writes == [20],
+                         "Initial duck claimed a large manual change and restored over it")
+            precondition(f.controller.hasPendingRestore)
+            f.controller.restoreSavedVolumeForcefully()
+            f.flush()
+            precondition(f.client.volume == 80 && !f.controller.hasPendingRestore)
+        }
+        do {
+            let f = Fixture()
+            f.client.writtenVolumeTransform = { max(0, $0 - 1) }
+            f.duck()
+            precondition(f.client.volume == 19 && f.controller.hasPendingRestore)
+            f.restore()
+            precondition(f.client.volume == 80 && f.client.writes == [20, 80, 81],
+                         "Normal one-point quantization no longer restores precisely")
+            precondition(!f.controller.hasPendingRestore)
+        }
+        print("PASS: 17 isolated Spotify recovery and transition scenarios (no Apple Events)")
     }
 }

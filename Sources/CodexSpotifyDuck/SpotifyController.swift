@@ -336,6 +336,7 @@ final class SpotifyController {
         } catch {
             throw SpotifyControlError.unconfirmedVolumeChange(reason: error.localizedDescription)
         }
+        try validatePostWriteVolume(actualAppliedVolume, requested: record.appliedVolume)
 
         let confirmedRecord = RecoveryRecord(
             originalVolume: record.originalVolume,
@@ -453,6 +454,7 @@ final class SpotifyController {
                 throw SpotifyControlError.unconfirmedVolumeChange(reason: error.localizedDescription)
             }
             if actual == desired { return .restored(desired) }
+            try validatePostWriteVolume(actual, requested: requested)
             save(RecoveryRecord(
                 originalVolume: record.originalVolume,
                 appliedVolume: actual,
@@ -464,6 +466,16 @@ final class SpotifyController {
             requested = corrected
         }
         throw SpotifyControlError.restoreMismatch(expected: desired, actual: actual)
+    }
+
+    private func validatePostWriteVolume(_ actual: Int, requested: Int) throws {
+        // Spotify can quantize by one point. A larger difference may be a new manual or
+        // remote change: retain the unconfirmed record instead of claiming or correcting it.
+        guard abs(actual - requested) <= 1 else {
+            throw SpotifyControlError.unconfirmedVolumeChange(
+                reason: "Spotify reported an unexpected volume after the change."
+            )
+        }
     }
 
     private func ensureCurrent(_ request: MicrophoneOperationGate.Snapshot) throws {

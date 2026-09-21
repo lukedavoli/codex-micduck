@@ -64,9 +64,18 @@ cd "$project_dir"
 mkdir -p "$project_dir/.build"
 stage="$(mktemp -d "$project_dir/.build/package.XXXXXX")"
 mount_path=""
+mount_device=""
 cleanup() {
-    if [[ -n "$mount_path" && -d "$mount_path" ]]; then
-        hdiutil detach "$mount_path" -quiet || true
+    if [[ -n "$mount_device" ]]; then
+        if ! hdiutil detach "$mount_device" -quiet; then
+            print -u2 "Could not detach packaging disk $mount_device; preserving its staging directory."
+            return
+        fi
+    elif [[ -n "$mount_path" ]]; then
+        if ! hdiutil detach "$mount_path" -quiet; then
+            print -u2 'Packaging attachment did not complete; preserving its staging directory for inspection.'
+            return
+        fi
     fi
     [[ -z "$stage" ]] || rm -rf -- "$stage"
 }
@@ -160,6 +169,31 @@ else
 fi
 codesign --verify --strict "$app_path"
 python3 ./scripts/verify-public-files.py "$app_path"
+# Signing and disk-image tools can add local provenance after initial staging.
+# Preserve signing/notarization data; remove only these development attributes.
+sanitize_metadata() {
+    python3 - "$@" <<'PY'
+from pathlib import Path
+import subprocess, sys
+arguments = sys.argv[1:]
+private_attributes = {
+    'com.apple.provenance', 'com.apple.diskimages.recentcksum',
+}
+for argument in arguments:
+    root = Path(argument)
+    paths = [root] + (list(root.rglob('*')) if root.is_dir() else [])
+    for path in paths:
+        if path.is_symlink():
+            continue
+        names = set(subprocess.check_output(['xattr', str(path)], text=True).splitlines())
+        found = names & private_attributes
+        for name in found:
+            # macOS may retain or immediately regenerate its integrity bookkeeping.
+            # Presence alone is not a leak; verify-public-files scans attribute values.
+            subprocess.run(['xattr', '-d', name, str(path)], capture_output=True)
+PY
+}
+sanitize_metadata "$app_path"
 ln -s /Applications "$dmg_contents/Applications"
 cp -X "$project_dir/LICENSE" "$project_dir/NOTICE" "$dmg_contents/"
 if [[ "$mode" == local ]]; then
@@ -168,7 +202,7 @@ fi
 
 dmg_path="$stage/$artifact_name.dmg"
 hdiutil create -quiet -srcfolder "$dmg_contents" -volname "$app_name" \
-    -fs HFS+ -format UDZO -nospotlight -noanyowners -srcowners off "$dmg_path"
+    -fs HFS+ -format UDZO -nospotlight -noanyowners -srcowners any "$dmg_path"
 xattr -c "$dmg_path"
 if [[ "$mode" == release ]]; then
     codesign --force --sign "$signing_identity" --timestamp "$dmg_path"
@@ -180,7 +214,14 @@ hdiutil verify -quiet "$dmg_path"
 python3 ./scripts/verify-public-files.py "$dmg_path"
 mount_path="$stage/verify-mount"
 mkdir "$mount_path"
-hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount_path" -quiet "$dmg_path"
+hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount_path" -plist "$dmg_path" > "$stage/mount.plist"
+mount_device="$(python3 - "$stage/mount.plist" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], 'rb') as source:
+    entities = plistlib.load(source)['system-entities']
+print(next(entity['dev-entry'] for entity in entities if entity.get('dev-entry')))
+PY
+)"
 codesign --verify --strict "$mount_path/$app_name.app"
 python3 ./scripts/verify-public-files.py "$mount_path" --dmg-root
 [[ "$(readlink "$mount_path/Applications")" == /Applications ]] || {
@@ -190,12 +231,22 @@ if [[ "$mode" == release ]]; then
     xcrun stapler validate "$mount_path/$app_name.app"
     spctl --assess --type execute "$mount_path/$app_name.app"
 fi
-hdiutil detach "$mount_path" -quiet
+hdiutil detach "$mount_device" -quiet
 mount_path=""
+mount_device=""
 
+# Remove tool-added metadata, then revalidate before exposing any output artifact.
+(cd "$stage" && shasum -a 256 "$artifact_name.dmg" > "$artifact_name.dmg.sha256")
+sanitize_metadata "$app_path" "$dmg_path" "$stage/$artifact_name.dmg.sha256"
+codesign --verify --strict "$app_path"
+if [[ "$mode" == release ]]; then
+    codesign --verify --strict "$dmg_path"
+    xcrun stapler validate "$app_path"
+    xcrun stapler validate "$dmg_path"
+fi
 # Move verified artifacts only after every applicable check has passed.
 mkdir -p "$output_dir"
 mv "$app_path" "$output_dir/$app_name.app"
 mv "$dmg_path" "$output_dir/$artifact_name.dmg"
-(cd "$output_dir" && shasum -a 256 "$artifact_name.dmg" > "$artifact_name.dmg.sha256")
+mv "$stage/$artifact_name.dmg.sha256" "$output_dir/$artifact_name.dmg.sha256"
 print "Built and verified ($mode): $output_dir/$artifact_name.dmg"
