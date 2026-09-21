@@ -2,6 +2,8 @@
 
 The app is a Swift package with no third-party runtime dependencies. Build on macOS 15 or later with Xcode or Command Line Tools providing Swift 6, plus Python 3 for the release checks. The downloadable build targets Apple silicon (`arm64`).
 
+The [product website](https://codexmicduck.davolisoftware.com) is maintained and deployed from the separate Davoli Software Website repository. This repository builds and distributes the app; its packages and source exports do not include the website.
+
 ## Local checks and packaging
 
 ```sh
@@ -45,6 +47,6 @@ Apple references: [notarization requirements](https://developer.apple.com/docume
 ./scripts/export-source.py --output ../codex-micduck-public
 ```
 
-This exports an allowlist of source, tests, selected resources, public docs, packaging scripts, and website files into a new directory. It excludes generated apps, build caches, private planning, editor state, credentials, and old design iterations. The output must not already exist. It scans exported bytes and metadata before declaring success; Git itself does not commit macOS extended attributes.
+This exports an allowlist of app source, tests, selected resources, public docs, packaging scripts, and the app's CI workflow into a new directory. It excludes website source, generated apps, build caches, private planning, editor state, credentials, and old design iterations. The output must not already exist. It scans exported bytes and metadata before declaring success; Git itself does not commit macOS extended attributes.
 
 Review that export before creating the public repository. Use an intentional public Git author identity (for example, a GitHub no-reply email). The script does not initialize Git, make commits, or publish anything. Keep the Apache-2.0 `LICENSE` and `NOTICE` with source and binary distributions.

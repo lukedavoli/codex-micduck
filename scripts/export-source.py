@@ -17,9 +17,8 @@ TREE_EXTENSIONS = {
     "Sources": {".swift"},
     "Tests": {".swift"},
     "scripts": {".sh", ".py"},
-    "website": {".html", ".css", ".js", ".json", ".svg", ".png", ".ico", ".txt", ".md"},
 }
-EXCLUDED_DIRS = {"node_modules", "screenshots", "review", "test-results", "playwright-report", "__pycache__"}
+EXCLUDED_DIRS = {"__pycache__"}
 
 
 def main() -> int:

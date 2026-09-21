@@ -29,10 +29,5 @@ xcuserdata/
 __pycache__/
 *.pyc
 
-# Website dependencies and local checks
-node_modules/
-website/.qa/
-website/screenshots/
-website/review/
-website/test-results/
-website/playwright-report/
+# Website source belongs to the separate Davoli Software Website repository
+/website/
