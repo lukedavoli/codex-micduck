@@ -94,6 +94,36 @@ private enum SpotifyControllerTests {
     }
 
     static func main() throws {
+        precondition(AppConstants.duckVolumeOptions == Array(stride(from: 10, through: 90, by: 10)))
+        for target in AppConstants.duckVolumeOptions {
+            let f = Fixture(volume: 100)
+            f.controller.setMicrophoneActivity(true)
+            f.controller.duckForMicrophone(targetVolume: target)
+            f.flush()
+            precondition(f.client.volume == target && f.controller.hasPendingRestore,
+                         "Microphone duck did not apply \(target)%")
+            f.restore()
+            precondition(f.client.volume == 100 && !f.controller.hasPendingRestore,
+                         "Microphone duck did not restore from \(target)%")
+
+            var outcome: Result<SpotifyTestOutcome, Error>?
+            f.controller.runTest(targetVolume: target) { outcome = $0 }
+            f.flush()
+            precondition(f.client.volume == min(target, 50),
+                         "Manual test did not produce its audible preview for \(target)%")
+            waitUntil { outcome != nil }
+            let result = try outcome!.get()
+            precondition(result == .restored(100) && f.client.volume == 100)
+        }
+        for target in [60, 70, 80, 90] {
+            let f = Fixture(volume: 50)
+            f.controller.setMicrophoneActivity(true)
+            f.controller.duckForMicrophone(targetVolume: target)
+            f.flush()
+            f.restore()
+            precondition(f.client.volume == 50 && f.client.writes.isEmpty,
+                         "Higher target raised already quieter Spotify")
+        }
         do {
             let f = Fixture()
             f.duck()

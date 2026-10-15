@@ -19,7 +19,7 @@ It adjusts Spotify's own volume. It does not change the Mac's system volume, lau
 1. Download the latest `.dmg` from [Releases](https://github.com/lukedavoli/codex-micduck/releases/latest), open it, and drag **Codex MicDuck** into **Applications**.
 2. Open Codex MicDuck. Look for the duck in the menu bar; open the app again if a crowded menu bar hides it.
 3. With Spotify running, choose **Test Spotify Duck** and allow Codex MicDuck to control Spotify when macOS asks.
-4. Start using your microphone in Codex. Choose your preferred Spotify duck volume from the duck menu.
+4. Start using your microphone in Codex. Choose your preferred Spotify duck volume from the duck menu: 10% to 90% in 10% steps.
 
 **Launch at Login** is optional. If macOS requests approval, use **System Settings → General → Login Items & Extensions**. If Spotify permission was denied, use **Open Automation Settings…** in the app and enable it under **Privacy & Security → Automation**.
 
